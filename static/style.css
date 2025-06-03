@@ -1,0 +1,25 @@
+/* static/style.css */
+/* Базовые стили для body (шрифт Inter) */
+body {
+    font-family: 'Inter', sans-serif;
+}
+
+/* Общие стили для кнопок и полей ввода, если не переопределены Tailwind */
+/* Эти стили в основном перекрываются Tailwind, но могут служить запасным вариантом */
+button {
+    cursor: pointer;
+    border: none;
+}
+
+input[type="text"],
+textarea,
+select {
+    border: 1px solid #d1d5db; /* gray-300 */
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem; /* rounded-md */
+}
+
+/* Стили для сообщений (message-box) */
+#message-box {
+    z-index: 1000;
+}

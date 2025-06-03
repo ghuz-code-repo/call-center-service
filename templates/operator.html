@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Оператор</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen font-sans p-4">
+    <div class="bg-white p-8 rounded-lg shadow-md max-w-2xl w-full">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-800">Интерфейс оператора</h1>
+                <div class="text-right">
+                    <p class="text-sm text-gray-600">Вошли как: <span class="font-semibold">{{ current_user.full_name }}</span></p>
+                    <a href="/" class="text-blue-500 hover:underline text-sm">В меню</a>
+                </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="mb-4">
+                    {% for category, message in messages %}
+                        <div class="p-3 rounded-md text-white {% if category == 'success' %}bg-green-500{% elif category == 'danger' %}bg-red-500{% else %}bg-blue-500{% endif %}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <div class="mb-6">
+            <label for="script-select" class="block text-gray-700 text-sm font-bold mb-2">Выберите скрипт:</label>
+            <select id="script-select" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline bg-white border-gray-300 rounded-md">
+                <option value="">-- Выберите скрипт --</option>
+                {% for script_id, script_data in scripts.items() %}
+                    <option value="{{ script_id }}">{{ script_data.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div id="script-container" class="hidden">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-700">Текущий шаг:</h2>
+            <div id="step-content" class="bg-blue-50 p-6 rounded-lg mb-6 text-gray-800 text-lg leading-relaxed">
+                </div>
+
+            <div id="options-container" class="space-y-3">
+                </div>
+
+            <div id="final-step-actions" class="mt-6 text-center" style="display: none;">
+                <button id="start-new-script-button" class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+                    Начать новый скрипт
+                </button>
+            </div>
+
+            <button id="back-button" class="mt-6 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105" style="display: none;">
+                Назад
+            </button>
+        </div>
+        <div id="message-box" class="fixed bottom-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-md shadow-lg hidden"></div>
+    </div>
+
+    <script>
+// static/script.js
+document.addEventListener('DOMContentLoaded', () => {
+    const scriptSelect = document.getElementById('script-select');
+    const scriptContainer = document.getElementById('script-container');
+    const stepContent = document.getElementById('step-content');
+    const optionsContainer = document.getElementById('options-container');
+    const backButton = document.getElementById('back-button');
+    const messageBox = document.getElementById('message-box');
+    const finalStepActions = document.getElementById('final-step-actions'); // Новый элемент
+    const startNewScriptButton = document.getElementById('start-new-script-button'); // Новый элемент
+
+    let currentScriptId = null;
+    let currentStepId = null;
+    let history = []; // История шагов для кнопки "Назад"
+
+    /**
+     * Отображает временное сообщение пользователю.
+     * @param {string} message - Текст сообщения.
+     * @param {string} type - Тип сообщения (например, 'success', 'error', 'info').
+     */
+    function showMessage(message, type = 'info') {
+        messageBox.textContent = message;
+        messageBox.className = `fixed bottom-4 right-4 px-4 py-2 rounded-md shadow-lg transition-opacity duration-300 ${type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'} text-white`;
+        messageBox.classList.remove('hidden');
+        setTimeout(() => {
+            messageBox.classList.add('hidden');
+        }, 3000);
+    }
+
+    /**
+     * Загружает и отображает данные шага скрипта.
+     * @param {string} scriptId - ID скрипта.
+     * @param {string} stepId - ID шага.
+     * @param {boolean} addToHistory - Добавлять ли текущий шаг в историю (true для обычного перехода, false для загрузки из истории).
+     */
+    async function loadStep(scriptId, stepId, addToHistory = true) {
+        if (!scriptId || !stepId) {
+            console.error("Не указан ID скрипта или шага.");
+            return;
+        }
+
+        if (addToHistory && currentStepId && currentScriptId === scriptId) {
+            history.push(currentStepId);
+        }
+        currentScriptId = scriptId;
+        currentStepId = stepId;
+
+        try {
+            const response = await fetch(`./api/get_step/${scriptId}/${stepId}`);
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Ошибка при загрузке шага');
+            }
+            const stepData = await response.json();
+
+            stepContent.innerHTML = stepData.text;
+            optionsContainer.innerHTML = ''; // Очищаем предыдущие опции
+            finalStepActions.style.display = 'none'; // Скрываем действия для финального шага по умолчанию
+
+            if (stepData.is_final) { // Если это финальный шаг
+                optionsContainer.style.display = 'none'; // Скрываем опции
+                finalStepActions.style.display = 'block'; // Показываем действия для финального шага
+                backButton.style.display = 'none'; // Скрываем кнопку "Назад" на финальном шаге
+                showMessage("Скрипт завершен.", 'info');
+            } else {
+                if (stepData.options && stepData.options.length > 0) {
+                    stepData.options.forEach(option => {
+                        const button = document.createElement('button');
+                        button.className = 'w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105';
+                        button.textContent = option.text;
+                        button.dataset.nextStep = option.next_step;
+                        button.addEventListener('click', handleOptionClick);
+                        optionsContainer.appendChild(button);
+                    });
+                    optionsContainer.style.display = 'block'; // Показываем контейнер с опциями
+                } else {
+                    // Если нет опций, но это не финальный шаг (возможно, ошибка конфигурации)
+                    optionsContainer.style.display = 'none';
+                    showMessage("У этого шага нет опций, и он не помечен как финальный.", 'warning');
+                }
+                backButton.style.display = history.length > 0 ? 'block' : 'none';
+            }
+
+            scriptContainer.classList.remove('hidden'); // Показываем контейнер скрипта
+        } catch (error) {
+            console.error('Ошибка при загрузке шага:', error);
+            stepContent.innerHTML = `<p class="text-red-600">Ошибка: ${error.message}. Пожалуйста, выберите другой скрипт или шаг.</p>`;
+            optionsContainer.innerHTML = '';
+            backButton.style.display = 'none';
+            finalStepActions.style.display = 'none';
+            showMessage(`Ошибка: ${error.message}`, 'error');
+        }
+    }
+
+    /**
+     * Обработчик клика по кнопке опции.
+     * Переходит к следующему шагу.
+     * @param {Event} event - Событие клика.
+     */
+    function handleOptionClick(event) {
+        const nextStepId = event.target.dataset.nextStep;
+        if (nextStepId) {
+            loadStep(currentScriptId, nextStepId);
+        } else {
+            showMessage("Не указан следующий шаг для этой опции.", 'error');
+        }
+    }
+
+    /**
+     * Обработчик изменения выбора скрипта.
+     * Загружает начальный шаг выбранного скрипта.
+     */
+    scriptSelect.addEventListener('change', () => {
+        const selectedScriptId = scriptSelect.value;
+        if (selectedScriptId) {
+            history = []; // Очищаем историю при смене скрипта
+            loadStep(selectedScriptId, 'start'); // Все скрипты начинаются с шага 'start'
+        } else {
+            scriptContainer.classList.add('hidden'); // Скрываем контейнер, если скрипт не выбран
+            stepContent.innerHTML = '';
+            optionsContainer.innerHTML = '';
+            backButton.style.display = 'none';
+            finalStepActions.style.display = 'none';
+            currentScriptId = null;
+            currentStepId = null;
+        }
+    });
+
+    /**
+     * Обработчик клика по кнопке "Назад".
+     * Возвращает к предыдущему шагу в истории.
+     */
+    backButton.addEventListener('click', () => {
+        if (history.length > 0) {
+            const prevStepId = history.pop();
+            loadStep(currentScriptId, prevStepId, false); // Не добавляем в историю, так как это возврат
+        }
+    });
+
+    /**
+     * Обработчик для кнопки "Начать новый скрипт".
+     * Перезагружает страницу для сброса интерфейса.
+     */
+    startNewScriptButton.addEventListener('click', () => {
+        window.location.reload(); // Простейший способ сбросить интерфейс оператора
+    });
+});
+
+    </script>
+</body>
+</html>

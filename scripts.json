@@ -1,0 +1,77 @@
+{
+    "script_welcome": {
+        "name": "Приветственный скрипт",
+        "steps": {
+            "start": {
+                "text": "Здравствуйте, меня зовут [ИМЯ ОПЕРАТОРА]. Удобно ли вам сейчас говорить?",
+                "options": [
+                    {"text": "Да, удобно", "next_step": "purpose_of_call"},
+                    {"text": "Нет, неудобно", "next_step": "reschedule"}
+                ],
+                "is_final": false
+            },
+            "purpose_of_call": {
+                "text": "Отлично! Я звоню по поводу [ЦЕЛЬ ЗВОНКА]. Могу ли я задать вам пару вопросов?",
+                "options": [
+                    {"text": "Да, конечно", "next_step": "questions"},
+                    {"text": "Нет, не сейчас", "next_step": "reschedule"}
+                ],
+                "is_final": false
+            },
+            "questions": {
+                "text": "Спасибо. Первый вопрос: [ВОПРОС 1]? Второй вопрос: [ВОПРОС 2]?",
+                "options": [],
+                "is_final": true
+            },
+            "reschedule": {
+                "text": "Хорошо, когда вам будет удобно, чтобы я перезвонил(а)?",
+                "options": [],
+                "is_final": true
+            },
+            "apology": {
+                "text": "Извините за беспокойство. Всего доброго!",
+                "options": [],
+                "is_final": true
+            }
+        }
+    },
+    "script_support": {
+        "name": "Скрипт техподдержки",
+        "steps": {
+            "start": {
+                "text": "Здравствуйте, опишите вашу проблему.",
+                "options": [
+                    {"text": "Проблема с интернетом", "next_step": "internet_issue"},
+                    {"text": "Проблема с телефоном", "next_step": "phone_issue"}
+                ],
+                "is_final": false
+            },
+            "internet_issue": {
+                "text": "Пожалуйста, проверьте подключение кабеля и перезагрузите роутер.",
+                "options": [
+                    {"text": "Сделано, не помогло", "next_step": "escalate"},
+                    {"text": "Помогло, спасибо", "next_step": "resolved"}
+                ],
+                "is_final": false
+            },
+            "phone_issue": {
+                "text": "Попробуйте перезагрузить телефон и проверить SIM-карту.",
+                "options": [
+                    {"text": "Сделано, не помогло", "next_step": "escalate"},
+                    {"text": "Помогло, спасибо", "next_step": "resolved"}
+                ],
+                "is_final": false
+            },
+            "escalate": {
+                "text": "Ваша проблема требует более глубокой диагностики. Мы создадим заявку и с вами свяжется специалист.",
+                "options": [],
+                "is_final": true
+            },
+            "resolved": {
+                "text": "Отлично, рад был помочь! Если возникнут другие вопросы, обращайтесь.",
+                "options": [],
+                "is_final": true
+            }
+        }
+    }
+}

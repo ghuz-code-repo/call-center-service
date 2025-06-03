@@ -1,0 +1,10 @@
+./.env
+.idea
+.vscode
+.venv
+/excel_data/*
+/instance/*
+/uploads/*
+/_pycache__/*
+instance/scripts.db
+.env

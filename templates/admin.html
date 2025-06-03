@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Администратор</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex flex-col items-center min-h-screen font-sans p-4">
+    <div class="bg-white p-8 rounded-lg shadow-md max-w-4xl w-full mb-8">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-800">Интерфейс администратора</h1>
+                <div class="text-right">
+                    <p class="text-sm text-gray-600">Вошли как: <span class="font-semibold">{{ current_user.full_name }}</span></p>
+                    <a href="/" class="text-blue-500 hover:underline text-sm">В меню</a>
+                </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="mb-4">
+                    {% for category, message in messages %}
+                        <div class="p-3 rounded-md text-white {% if category == 'success' %}bg-green-500{% elif category == 'danger' %}bg-red-500{% else %}bg-blue-500{% endif %}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <div class="mb-8 p-6 border border-gray-200 rounded-lg bg-gray-50">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-700">Добавить новый скрипт</h2>
+            <div class="mb-4">
+                <label for="new-script-name" class="block text-gray-700 text-sm font-bold mb-2">Название скрипта:</label>
+                <input type="text" id="new-script-name" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="Например, 'Скрипт для новых клиентов'">
+            </div>
+            <button id="add-script-button" class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+                Добавить скрипт
+            </button>
+        </div>
+
+        <div class="mb-8">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-700">Существующие скрипты</h2>
+            <div id="scripts-list" class="space-y-4">
+                {% for script_id, script_data in scripts.items() %}
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center">
+                        <span class="text-lg font-medium text-gray-800">{{ script_data.name }} (ID: {{ script_id }})</span>
+                        <button class="view-script-button bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1 px-3 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105" data-script-id="{{ script_id }}">
+                            Посмотреть/Редактировать
+                        </button>
+                        <button class="delete-script-button bg-red-500 hover:bg-red-600 text-white font-semibold py-1 px-3 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105" data-script-id="{{ script_id }}">
+                            Удалить скрипт
+                        </button>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div id="edit-script-section" class="hidden p-6 border border-gray-200 rounded-lg bg-white">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-700">Редактирование скрипта: <span id="current-script-name" class="font-bold"></span></h2>
+            <input type="hidden" id="current-script-id">
+
+            <div class="mb-6">
+                <label for="step-select" class="block text-gray-700 text-sm font-bold mb-2">Выберите шаг для редактирования:</label>
+                <select id="step-select" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline bg-white border-gray-300 rounded-md">
+                    </select>
+            </div>
+
+            <div id="step-editor" class="hidden">
+                <h3 class="text-xl font-semibold mb-3 text-gray-700">Редактировать шаг: <span id="current-step-id-display" class="font-bold"></span></h3>
+                <div class="mb-4">
+                    <label for="step-text" class="block text-gray-700 text-sm font-bold mb-2">Текст шага:</label>
+                    <textarea id="step-text" rows="5" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"></textarea>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-bold mb-2">Варианты ответов:</label>
+                    <div id="options-editor-container" class="space-y-2 mb-2">
+                        </div>
+                    <button type="button" id="add-option-button" class="bg-gray-400 hover:bg-gray-500 text-white font-semibold py-1 px-3 rounded-lg shadow-md transition duration-300 ease-in-out">
+                        Добавить опцию
+                    </button>
+                </div>
+                <div class="mb-4 flex items-center">
+                    <input type="checkbox" id="step-is-final" class="form-checkbox h-5 w-5 text-blue-600 rounded">
+                    <label for="step-is-final" class="ml-2 text-gray-700 text-sm font-bold">Финальный шаг</label>
+                </div>
+                <button id="save-step-button" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+                    Сохранить шаг
+                </button>
+                 <button id="delete-step-button" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 ml-2">
+                    Удалить шаг
+                </button>
+            </div>
+
+            <div class="mt-8 p-6 border border-gray-200 rounded-lg bg-blue-50">
+                <h3 class="text-xl font-semibold mb-3 text-gray-700">Добавить новый шаг к текущему скрипту</h3>
+                <div class="mb-4">
+                    <label for="new-step-id" class="block text-gray-700 text-sm font-bold mb-2">ID нового шага (уникальный):</label>
+                    <input type="text" id="new-step-id" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="Например, 'new_question_1'">
+                </div>
+                <div class="mb-4">
+                    <label for="new-step-text" class="block text-gray-700 text-sm font-bold mb-2">Текст нового шага:</label>
+                    <textarea id="new-step-text" rows="3" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="Введите текст для нового шага"></textarea>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-bold mb-2">Варианты ответов для нового шага:</label>
+                    <div id="new-options-editor-container" class="space-y-2 mb-2">
+                        </div>
+                    <button type="button" id="add-new-option-button" class="bg-gray-400 hover:bg-gray-500 text-white font-semibold py-1 px-3 rounded-lg shadow-md transition duration-300 ease-in-out">
+                        Добавить опцию
+                    </button>
+                </div>
+                <div class="mb-4 flex items-center">
+                    <input type="checkbox" id="new-step-is-final" class="form-checkbox h-5 w-5 text-blue-600 rounded">
+                    <label for="new-step-is-final" class="ml-2 text-gray-700 text-sm font-bold">Финальный шаг</label>
+                </div>
+                <button id="add-step-button" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+                    Добавить шаг
+                </button>
+            </div>
+        </div>
+        <div id="message-box" class="fixed bottom-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-md shadow-lg hidden"></div>
+    </div>
+
+    <script>
+// static/admin.js
+document.addEventListener('DOMContentLoaded', () => {
+    const addScriptButton = document.getElementById('add-script-button');
+    const newScriptNameInput = document.getElementById('new-script-name');
+    const scriptsListDiv = document.getElementById('scripts-list');
+    const editScriptSection = document.getElementById('edit-script-section');
+    const currentScriptIdInput = document.getElementById('current-script-id');
+    const currentScriptNameDisplay = document.getElementById('current-script-name');
+    const stepSelect = document.getElementById('step-select');
+    const stepEditor = document.getElementById('step-editor');
+    const currentStepIdDisplay = document.getElementById('current-step-id-display');
+    const stepTextInput = document.getElementById('step-text');
+    const saveStepButton = document.getElementById('save-step-button');
+    const deleteStepButton = document.getElementById('delete-step-button');
+    const addStepButton = document.getElementById('add-step-button');
+    const newStepIdInput = document.getElementById('new-step-id');
+    const newStepTextInput = document.getElementById('new-step-text');
+    const messageBox = document.getElementById('message-box');
+
+    // Новые элементы для динамических опций
+    const optionsEditorContainer = document.getElementById('options-editor-container');
+    const addOptionButton = document.getElementById('add-option-button');
+    const newOptionsEditorContainer = document.getElementById('new-options-editor-container');
+    const addNewOptionButton = document.getElementById('add-new-option-button');
+
+    // Новые элементы для чекбокса "Финальный шаг"
+    const stepIsFinalCheckbox = document.getElementById('step-is-final');
+    const newStepIsFinalCheckbox = document.getElementById('new-step-is-final');
+
+
+    let currentScriptData = null; // Будет хранить данные текущего редактируемого скрипта
+
+    /**
+     * Отображает временное сообщение пользователю.
+     * @param {string} message - Текст сообщения.
+     * @param {string} type - Тип сообщения (например, 'success', 'error', 'info').
+     */
+    function showMessage(message, type = 'info') {
+        messageBox.textContent = message;
+        messageBox.className = `fixed bottom-4 right-4 px-4 py-2 rounded-md shadow-lg transition-opacity duration-300 ${type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'} text-white`;
+        messageBox.classList.remove('hidden');
+        setTimeout(() => {
+            messageBox.classList.add('hidden');
+        }, 3000);
+    }
+
+    /**
+     * Создает и добавляет пару полей ввода для опции скрипта.
+     * @param {HTMLElement} container - Контейнер, куда будут добавлены поля.
+     * @param {string} optionText - Начальный текст опции.
+     * @param {string} nextStepId - Начальный ID следующего шага.
+     */
+    function addOptionField(container, optionText = '', nextStepId = '') {
+        const optionDiv = document.createElement('div');
+        optionDiv.className = 'flex items-center space-x-2';
+
+        const textInput = document.createElement('input');
+        textInput.type = 'text';
+        textInput.className = 'flex-1 shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline';
+        textInput.placeholder = 'Текст опции';
+        textInput.value = optionText;
+        textInput.dataset.type = 'optionText'; // Для идентификации при сборе данных
+
+        const nextStepInput = document.createElement('input');
+        nextStepInput.type = 'text';
+        nextStepInput.className = 'flex-1 shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline';
+        nextStepInput.placeholder = 'ID следующего шага';
+        nextStepInput.value = nextStepId;
+        nextStepInput.dataset.type = 'nextStepId'; // Для идентификации при сборе данных
+
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'bg-red-500 hover:bg-red-600 text-white font-semibold py-1 px-2 rounded-lg shadow-md transition duration-300 ease-in-out';
+        removeButton.textContent = 'X';
+        removeButton.addEventListener('click', () => {
+            optionDiv.remove();
+        });
+
+        optionDiv.appendChild(textInput);
+        optionDiv.appendChild(nextStepInput);
+        optionDiv.appendChild(removeButton);
+        container.appendChild(optionDiv);
+    }
+
+    /**
+     * Обновляет список скриптов на странице.
+     * Вызывается после добавления/удаления скрипта.
+     */
+    function updateScriptsList() {
+        fetch('./admin',
+        {
+            headers: {
+                'X-User-Name': '{{ current_user.username }}',
+                'X-User-Roles': '{{ current_user.role }}',
+                'Content-Type': 'application/json'
+            }
+        }
+        )
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newScriptsList = doc.getElementById('scripts-list').innerHTML;
+                scriptsListDiv.innerHTML = newScriptsList;
+                attachEventListeners(); // Переподключаем слушатели событий
+            })
+            .catch(error => {
+                console.error('Ошибка при обновлении списка скриптов:', error);
+                showMessage('Ошибка при обновлении списка скриптов.', 'error');
+            });
+    }
+
+    /**
+     * Загружает данные скрипта и заполняет выпадающий список шагов.
+     * @param {string} scriptId - ID скрипта для загрузки.
+     */
+    async function loadScriptForEditing(scriptId) {
+        try {
+            // Получаем данные скрипта из API
+            const stepsResponse = await fetch(`./api/get_script_steps/${scriptId}`, {
+            headers: {
+                'X-User-Name': '{{ current_user.username }}',
+                'X-User-Roles': '{{ current_user.role }}',
+                'Content-Type': 'application/json'
+            }
+            });
+            if (!stepsResponse.ok) {
+                const errorData = await stepsResponse.json();
+                throw new Error(errorData.error || 'Ошибка при загрузке шагов скрипта');
+            }
+            const scriptSteps = await stepsResponse.json();
+
+            // Имитируем получение имени скрипта из DOM (в реальном приложении лучше получить из API)
+            const scriptNameElement = scriptsListDiv.querySelector(`[data-script-id="${scriptId}"]`).closest('div').querySelector('span');
+            const scriptName = scriptNameElement ? scriptNameElement.textContent.split(' (ID:')[0].trim() : scriptId;
+
+            currentScriptData = {
+                id: scriptId,
+                name: scriptName,
+                steps: scriptSteps
+            };
+
+            currentScriptIdInput.value = scriptId;
+            currentScriptNameDisplay.textContent = currentScriptData.name;
+            editScriptSection.classList.remove('hidden');
+            stepEditor.classList.add('hidden'); // Скрываем редактор шага пока не выбран шаг
+
+            // Очищаем и заполняем select шагов
+            stepSelect.innerHTML = '<option value="">-- Выберите шаг --</option>';
+            for (const stepId in currentScriptData.steps) {
+                const option = document.createElement('option');
+                option.value = stepId;
+                option.textContent = `${stepId}: ${currentScriptData.steps[stepId].text.substring(0, 50)}...`;
+                stepSelect.appendChild(option);
+            }
+            stepSelect.value = ''; // Сбрасываем выбор
+            optionsEditorContainer.innerHTML = ''; // Очищаем опции при загрузке нового скрипта
+            newOptionsEditorContainer.innerHTML = ''; // Очищаем опции нового шага
+            stepIsFinalCheckbox.checked = false; // Сбрасываем чекбокс
+            newStepIsFinalCheckbox.checked = false; // Сбрасываем чекбокс
+        } catch (error) {
+            console.error('Ошибка при загрузке скрипта для редактирования:', error);
+            showMessage(`Ошибка: ${error.message}`, 'error');
+        }
+    }
+
+    /**
+     * Загружает данные выбранного шага в форму редактирования.
+     */
+    stepSelect.addEventListener('change', () => {
+        const selectedStepId = stepSelect.value;
+        if (selectedStepId && currentScriptData && currentScriptData.steps[selectedStepId]) {
+            const step = currentScriptData.steps[selectedStepId];
+            currentStepIdDisplay.textContent = selectedStepId;
+            stepTextInput.value = step.text;
+
+            // Очищаем контейнер опций и заполняем его
+            optionsEditorContainer.innerHTML = '';
+            step.options.forEach(option => {
+                addOptionField(optionsEditorContainer, option.text, option.next_step);
+            });
+
+            // Устанавливаем состояние чекбокса "Финальный шаг"
+            stepIsFinalCheckbox.checked = step.is_final || false; // По умолчанию false
+
+            stepEditor.classList.remove('hidden');
+        } else {
+            stepEditor.classList.add('hidden');
+            stepTextInput.value = '';
+            optionsEditorContainer.innerHTML = ''; // Очищаем опции при скрытии
+            stepIsFinalCheckbox.checked = false; // Сбрасываем чекбокс
+        }
+    });
+
+    /**
+     * Обработчик для кнопки "Сохранить шаг".
+     * Отправляет данные шага на сервер для сохранения.
+     */
+    saveStepButton.addEventListener('click', async () => {
+        const scriptId = currentScriptIdInput.value;
+        const stepId = stepSelect.value;
+        const text = stepTextInput.value;
+        const isFinal = stepIsFinalCheckbox.checked; // Получаем значение чекбокса
+
+        // Собираем опции из динамических полей
+        const options = [];
+        optionsEditorContainer.querySelectorAll('.flex.items-center.space-x-2').forEach(optionDiv => {
+            const optionText = optionDiv.querySelector('input[data-type="optionText"]').value;
+            const nextStepId = optionDiv.querySelector('input[data-type="nextStepId"]').value;
+            if (optionText && nextStepId) { // Добавляем только если оба поля заполнены
+                options.push({ text: optionText, next_step: nextStepId });
+            }
+        });
+
+        if (!scriptId || !stepId || !text) { // options теперь может быть пустым массивом
+            showMessage('Заполните все поля для шага (кроме опций, если их нет).', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch('./admin/save_step', {
+                method: 'POST',
+            headers: {
+                'X-User-Name': '{{ current_user.username }}',
+                'X-User-Roles': '{{ current_user.role }}',
+                'Content-Type': 'application/json'
+            },
+                body: JSON.stringify({ script_id: scriptId, step_id: stepId, text: text, options: options, is_final: isFinal })
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                showMessage(result.message, 'success');
+                // Обновляем данные в текущем скрипте после сохранения
+                currentScriptData.steps[stepId] = { text: text, options: options, is_final: isFinal };
+                // Обновляем текст в select option
+                const selectedOption = stepSelect.querySelector(`option[value="${stepId}"]`);
+                if (selectedOption) {
+                    selectedOption.textContent = `${stepId}: ${text.substring(0, 50)}...`;
+                }
+            } else {
+                showMessage(`Ошибка: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            console.error('Ошибка при сохранении шага:', error);
+            showMessage('Ошибка сети или сервера при сохранении шага.', 'error');
+        }
+    });
+
+    /**
+     * Обработчик для кнопки "Добавить скрипт".
+     * Отправляет название нового скрипта на сервер.
+     */
+    addScriptButton.addEventListener('click', async () => {
+        const scriptName = newScriptNameInput.value.trim();
+        if (!scriptName) {
+            showMessage('Название скрипта не может быть пустым.', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch('./admin/add_script', {
+                method: 'POST',
+            headers: {
+                'X-User-Name': '{{ current_user.username }}',
+                'X-User-Roles': '{{ current_user.role }}',
+                'Content-Type': 'application/json'
+            },
+                body: JSON.stringify({ script_name: scriptName })
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                showMessage(result.message, 'success');
+                newScriptNameInput.value = ''; // Очищаем поле
+                updateScriptsList(); // Обновляем список скриптов
+            } else {
+                showMessage(`Ошибка: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            console.error('Ошибка при добавлении скрипта:', error);
+            showMessage('Ошибка сети или сервера при добавлении скрипта.', 'error');
+        }
+    });
+
+    /**
+     * Обработчик для кнопки "Добавить шаг".
+     * Отправляет данные нового шага на сервер.
+     */
+    addStepButton.addEventListener('click', async () => {
+        const scriptId = currentScriptIdInput.value;
+        const newStepId = newStepIdInput.value.trim();
+        const newStepText = newStepTextInput.value;
+        const newStepIsFinal = newStepIsFinalCheckbox.checked; // Получаем значение чекбокса
+
+        // Собираем опции для нового шага
+        const newStepOptions = [];
+        newOptionsEditorContainer.querySelectorAll('.flex.items-center.space-x-2').forEach(optionDiv => {
+            const optionText = optionDiv.querySelector('input[data-type="optionText"]').value;
+            const nextStepId = optionDiv.querySelector('input[data-type="nextStepId"]').value;
+            if (optionText && nextStepId) {
+                newStepOptions.push({ text: optionText, next_step: nextStepId });
+            }
+        });
+
+        if (!scriptId || !newStepId || !newStepText) { // newStepOptions может быть пустым массивом
+            showMessage('Заполните обязательные поля для нового шага.', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch('./admin/add_step', {
+                method: 'POST',
+            headers: {
+                'X-User-Name': '{{ current_user.username }}',
+                'X-User-Roles': '{{ current_user.role }}',
+                'Content-Type': 'application/json'
+            },
+                body: JSON.stringify({
+                    script_id: scriptId,
+                    new_step_id: newStepId,
+                    text: newStepText,
+                    options: newStepOptions,
+                    is_final: newStepIsFinal
+                })
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                showMessage(result.message, 'success');
+                // Очищаем поля нового шага
+                newStepIdInput.value = '';
+                newStepTextInput.value = '';
+                newOptionsEditorContainer.innerHTML = ''; // Очищаем опции нового шага
+                newStepIsFinalCheckbox.checked = false; // Сбрасываем чекбокс
+
+                // Обновляем список шагов в select
+                await loadScriptForEditing(scriptId);
+            } else {
+                showMessage(`Ошибка: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            console.error('Ошибка при добавлении шага:', error);
+            showMessage('Ошибка сети или сервера при добавлении шага.', 'error');
+        }
+    });
+
+    /**
+     * Обработчик для кнопки "Удалить шаг".
+     * Отправляет запрос на удаление шага.
+     */
+    deleteStepButton.addEventListener('click', async () => {
+        const scriptId = currentScriptIdInput.value;
+        const stepId = stepSelect.value;
+
+        if (!scriptId || !stepId) {
+            showMessage('Выберите шаг для удаления.', 'error');
+            return;
+        }
+
+        // Подтверждение удаления
+        // Использование confirm() не рекомендуется в production, но для простой демонстрации допустимо.
+        // В реальном приложении используйте модальное окно.
+        if (!confirm(`Вы уверены, что хотите удалить шаг "${stepId}"?`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch('./admin/delete_step', {
+                method: 'POST',
+            headers: {
+                'X-User-Name': '{{ current_user.username }}',
+                'X-User-Roles': '{{ current_user.role }}'
+            },
+                body: JSON.stringify({ script_id: scriptId, step_id: stepId })
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                showMessage(result.message, 'success');
+                // Обновляем список шагов
+                await loadScriptForEditing(scriptId);
+                stepEditor.classList.add('hidden'); // Скрываем редактор шага
+            } else {
+                showMessage(`Ошибка: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            console.error('Ошибка при удалении шага:', error);
+            showMessage('Ошибка сети или сервера при удалении шага.', 'error');
+        }
+    });
+
+function fetchJson(url, options) {
+    return fetch(url, options)
+        .then(response => {
+            const isSuccess = response.ok;
+            return response.json()
+                .then(data => ({ ok: isSuccess, data: data, status: response.status }))
+                .catch(err => {
+                    console.error("JSON parse error:", err);
+                    return { ok: false, data: { error: "Invalid response format" } };
+                });
+        })
+        .catch(error => {
+            console.error("Fetch error:", error);
+            return { ok: false, data: { error: error.message } };
+        });
+}
+
+
+    /**
+     * Обработчик для кнопки "Удалить скрипт".
+     * Отправляет запрос на удаление всего скрипта.
+     */
+function handleDeleteScriptClick(event) {
+    const scriptId = event.target.dataset.scriptId;
+
+    if (!confirm(`Вы уверены, что хотите удалить скрипт "${scriptId}" со всеми его шагами?`)) {
+        return;
+    }
+    
+    fetchJson('./admin/delete_script', {
+        method: 'POST',
+        headers: {
+            'X-User-Name': '{{ current_user.username }}',
+            'X-User-Roles': '{{ current_user.role }}',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ script_id: scriptId })
+    })
+    .then(result => {
+        if (result.ok) {
+            showMessage(result.data.message, 'success');
+            updateScriptsList();
+            editScriptSection.classList.add('hidden');
+        } else {
+            showMessage(`Ошибка: ${result.data.error}`, 'error');
+        }
+    });
+}
+
+    /**
+     * Прикрепляет слушатели событий к динамически создаваемым элементам.
+     */
+    function attachEventListeners() {
+        document.querySelectorAll('.view-script-button').forEach(button => {
+            button.onclick = () => loadScriptForEditing(button.dataset.scriptId);
+        });
+        document.querySelectorAll('.delete-script-button').forEach(button => {
+            button.onclick = handleDeleteScriptClick;
+        });
+    }
+
+    // Слушатели событий для кнопок добавления опций
+    addOptionButton.addEventListener('click', () => {
+        addOptionField(optionsEditorContainer);
+    });
+
+    addNewOptionButton.addEventListener('click', () => {
+        addOptionField(newOptionsEditorContainer);
+    });
+
+    // Инициализация: прикрепляем слушатели к существующим кнопкам
+    attachEventListeners();
+});
+
+
+    </script>
+</body>
+</html>
